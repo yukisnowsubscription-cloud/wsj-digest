@@ -247,6 +247,36 @@
       color: #2d6a2f;
     }
 
+    /* ─── 共有ボタン ─────────────────────────────────── */
+    .share-wrap {
+      max-width: 860px;
+      margin: 0 auto 16px;
+      padding: 0 24px;
+      display: none;
+    }
+    .btn-share {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 6px;
+      font-family: 'Arial', sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-share:hover { background: var(--accent-dark); }
+    .share-toast {
+      display: inline-block;
+      margin-left: 12px;
+      font-size: 13px;
+      color: #2d6a2f;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .share-toast.visible { opacity: 1; }
+
     /* ─── オプションリンク ─────────────────────────────── */
     footer {
       text-align: center;
@@ -280,6 +310,11 @@
 
   <div id="done-banner">
     <div class="inner" id="done-inner"></div>
+  </div>
+
+  <div class="share-wrap" id="share-wrap">
+    <button class="btn-share" id="btn-share">📋 LINE / Slack に共有</button>
+    <span class="share-toast" id="share-toast">コピーしました！</span>
   </div>
 
   <footer>

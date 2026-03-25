@@ -61,6 +61,7 @@ function applyState(state) {
     doneBanner.style.display = 'block';
     document.getElementById('done-inner').textContent =
       `✅ ${(articles || []).length} 件の記事をすべて処理しました。`;
+    document.getElementById('share-wrap').style.display = 'block';
   } else if (status === 'error') {
     spinner.style.display = 'none';
     statusText.textContent = 'エラーが発生しました';
@@ -244,6 +245,66 @@ async function deepDive(index, article, btn, card) {
     btn.textContent = '🔍 深掘りする';
   }
 }
+
+// ─── 共有（クリップボードコピー） ────────────────────────────────────────────
+
+document.getElementById('btn-share').addEventListener('click', async () => {
+  const storageData = await chrome.storage.local.get(storageKey);
+  const state = storageData[storageKey];
+  if (!state || !state.articles || state.articles.length === 0) return;
+
+  const dateStr = new Date().toLocaleDateString('ja-JP', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+  });
+
+  let text = `📰 WSJ Daily Digest\n${dateStr}\n`;
+  text += '━'.repeat(20) + '\n\n';
+
+  state.articles.forEach((a, i) => {
+    text += `【${i + 1}】${a.title || '(タイトルなし)'}\n`;
+    if (a.publishedAt) {
+      try {
+        const d = new Date(a.publishedAt);
+        if (!isNaN(d.getTime())) {
+          text += `📅 ${d.toLocaleString('ja-JP', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}\n`;
+        }
+      } catch (_) {}
+    }
+    text += `\n${a.summary || ''}\n`;
+    if (a.whyItMatters) {
+      text += `\n💡 Why it matters\n${a.whyItMatters}\n`;
+    }
+
+    // 深掘り結果があれば含める
+    const deepDiv = document.getElementById(`deep-${i}`);
+    if (deepDiv) {
+      const deepResult = deepDiv.querySelector('.deep-dive-result p');
+      if (deepResult) {
+        text += `\n🔍 詳細分析\n${deepResult.textContent}\n`;
+      }
+    }
+
+    text += `\n🔗 ${a.url}\n`;
+    text += '\n' + '─'.repeat(20) + '\n\n';
+  });
+
+  try {
+    await navigator.clipboard.writeText(text);
+    const toast = document.getElementById('share-toast');
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 2500);
+  } catch (_) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const toast = document.getElementById('share-toast');
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 2500);
+  }
+});
 
 // ─── 初期化 ───────────────────────────────────────────────────────────────────
 
