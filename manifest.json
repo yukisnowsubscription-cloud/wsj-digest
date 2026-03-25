@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "WSJ Daily Digest",
+  "version": "1.0",
+  "description": "WSJの記事を自動収集・要約してダイジェストを作成します",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "clipboardWrite",
+    "clipboardRead",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.wsj.com/*",
+    "https://api.openai.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "WSJ Daily Digest"
+  },
+  "options_page": "options.html"
+}

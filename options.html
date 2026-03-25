@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WSJ Digest — 設定</title>
+  <style>
+    :root {
+      --accent: #c41230;
+      --bg: #f9f7f2;
+      --border: #e0dcd5;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      background: var(--bg);
+      color: #1a1a1a;
+      padding: 40px 32px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-family: 'Georgia', serif;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #777;
+      margin-bottom: 32px;
+    }
+
+    .field {
+      margin-bottom: 24px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: bold;
+      color: #444;
+      margin-bottom: 8px;
+    }
+    input[type="password"],
+    input[type="text"] {
+      width: 100%;
+      max-width: 480px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus {
+      border-color: var(--accent);
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #999;
+      margin-top: 6px;
+    }
+    .hint a { color: #999; }
+
+    .toggle-btn {
+      background: none;
+      border: none;
+      font-size: 12px;
+      color: var(--accent);
+      cursor: pointer;
+      padding: 4px 0;
+      margin-top: 6px;
+      display: block;
+    }
+
+    .save-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 28px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .save-btn:hover { background: #9a0e24; }
+
+    #message {
+      display: none;
+      margin-top: 16px;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    #message.success {
+      background: #edf7ed;
+      border: 1px solid #a3d9a5;
+      color: #2d6a2f;
+    }
+    #message.error {
+      background: #fff3f3;
+      border: 1px solid #f5c6c6;
+      color: #c0392b;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 32px 0;
+    }
+    .info-section h2 {
+      font-size: 15px;
+      font-family: 'Georgia', serif;
+      margin-bottom: 12px;
+    }
+    .info-section ol {
+      padding-left: 20px;
+      font-size: 13px;
+      color: #555;
+      line-height: 2;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>⚙️ WSJ Daily Digest — 設定</h1>
+  <p class="subtitle">OpenAI APIキーを入力して保存してください。</p>
+
+  <div class="field">
+    <label for="api-key">OpenAI API キー</label>
+    <input type="password" id="api-key" placeholder="sk-..." autocomplete="off" />
+    <button class="toggle-btn" id="toggle-visibility">👁 表示/非表示</button>
+    <p class="hint">
+      APIキーは端末内（Chrome の拡張ストレージ）にのみ保存されます。<br>
+      キーの取得は <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a> から。
+    </p>
+  </div>
+
+  <button class="save-btn" id="save-btn">保存する</button>
+
+  <div id="message"></div>
+
+  <hr />
+
+  <div class="info-section">
+    <h2>📖 使い方</h2>
+    <ol>
+      <li>APIキーを入力して「保存する」をクリック</li>
+      <li>WSJ（wsj.com）のトップページを開く</li>
+      <li>ブラウザ右上の拡張アイコンをクリック</li>
+      <li>ダイジェストページが開き、自動で記事を収集・要約します</li>
+      <li>各記事の「🔍 深掘りする」ボタンで詳細分析が可能</li>
+    </ol>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
