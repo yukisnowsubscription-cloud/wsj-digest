@@ -332,25 +332,33 @@ async function runNhkDigest(nhkTabId, sessionId, apiKey) {
 
     let entry = { url, title: url, text: '', summary: '', whyItMatters: '', publishedAt: '' };
     let articleTabId = null;
-    try {
-      const newTab = await chrome.tabs.create({ url, active: false });
-      articleTabId = newTab.id;
-      await waitForTabLoad(articleTabId);
-      await sleep(3000);
-      let content = await extractArticleNhk(articleTabId);
-      // Next.js/RSC のハイドレーション完了を待ちながら最大2回リトライ
-      for (let retry = 0; retry < 2 && (!content.text || content.text.length < 100); retry++) {
+    // タブ操作エラー（ドラッグ中など）は最大3回リトライ
+    for (let tabAttempt = 0; tabAttempt < 3; tabAttempt++) {
+      if (tabAttempt > 0) await sleep(2000);
+      try {
+        const newTab = await chrome.tabs.create({ url, active: false });
+        articleTabId = newTab.id;
+        await waitForTabLoad(articleTabId);
         await sleep(3000);
-        content = await extractArticleNhk(articleTabId);
-      }
-      entry.title = content.title || url;
-      entry.text = content.text || '';
-      entry.publishedAt = content.publishedAt || '';
-    } catch (e) {
-      console.error('NHK記事読み込みエラー:', url, e);
-    } finally {
-      if (articleTabId !== null) {
-        try { await chrome.tabs.remove(articleTabId); } catch (_) {}
+        let content = await extractArticleNhk(articleTabId);
+        // Next.js/RSC のハイドレーション完了を待ちながら最大2回リトライ
+        for (let retry = 0; retry < 2 && (!content.text || content.text.length < 100); retry++) {
+          await sleep(3000);
+          content = await extractArticleNhk(articleTabId);
+        }
+        entry.title = content.title || url;
+        entry.text = content.text || '';
+        entry.publishedAt = content.publishedAt || '';
+        break; // 成功したらループを抜ける
+      } catch (e) {
+        const isTabBusy = e.message && e.message.includes('Tabs cannot be edited');
+        console.error(`NHK記事読み込みエラー (attempt ${tabAttempt + 1}):`, url, e);
+        if (!isTabBusy || tabAttempt === 2) break;
+      } finally {
+        if (articleTabId !== null) {
+          try { await chrome.tabs.remove(articleTabId); } catch (_) {}
+          articleTabId = null;
+        }
       }
     }
 
