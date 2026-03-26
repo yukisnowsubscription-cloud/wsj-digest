@@ -61,7 +61,7 @@ function applyState(state) {
     doneBanner.style.display = 'block';
     document.getElementById('done-inner').textContent =
       `✅ ${(articles || []).length} 件の記事をすべて処理しました。`;
-    document.getElementById('share-wrap').style.display = 'block';
+    document.getElementById('share-wrap').style.display = 'flex';
   } else if (status === 'error') {
     spinner.style.display = 'none';
     statusText.textContent = 'エラーが発生しました';
@@ -246,21 +246,16 @@ async function deepDive(index, article, btn, card) {
   }
 }
 
-// ─── 共有（クリップボードコピー） ────────────────────────────────────────────
+// ─── 共有テキスト生成 ─────────────────────────────────────────────────────────
 
-document.getElementById('btn-share').addEventListener('click', async () => {
-  const storageData = await chrome.storage.local.get(storageKey);
-  const state = storageData[storageKey];
-  if (!state || !state.articles || state.articles.length === 0) return;
-
+function buildShareText(articles) {
   const dateStr = new Date().toLocaleDateString('ja-JP', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
   });
-
   let text = `📰 WSJ Daily Digest\n${dateStr}\n`;
   text += '━'.repeat(20) + '\n\n';
 
-  state.articles.forEach((a, i) => {
+  articles.forEach((a, i) => {
     text += `【${i + 1}】${a.title || '(タイトルなし)'}\n`;
     if (a.publishedAt) {
       try {
@@ -271,28 +266,39 @@ document.getElementById('btn-share').addEventListener('click', async () => {
       } catch (_) {}
     }
     text += `\n${a.summary || ''}\n`;
-    if (a.whyItMatters) {
-      text += `\n💡 Why it matters\n${a.whyItMatters}\n`;
-    }
-
-    // 深掘り結果があれば含める
+    if (a.whyItMatters) text += `\n💡 Why it matters\n${a.whyItMatters}\n`;
     const deepDiv = document.getElementById(`deep-${i}`);
     if (deepDiv) {
       const deepResult = deepDiv.querySelector('.deep-dive-result p');
-      if (deepResult) {
-        text += `\n🔍 詳細分析\n${deepResult.textContent}\n`;
-      }
+      if (deepResult) text += `\n🔍 詳細分析\n${deepResult.textContent}\n`;
     }
-
     text += `\n🔗 ${a.url}\n`;
     text += '\n' + '─'.repeat(20) + '\n\n';
   });
+  return text;
+}
 
+function showToast(msg) {
+  const toast = document.getElementById('share-toast');
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  setTimeout(() => toast.classList.remove('visible'), 3000);
+}
+
+async function getArticles() {
+  const storageData = await chrome.storage.local.get(storageKey);
+  const state = storageData[storageKey];
+  return (state && state.articles && state.articles.length > 0) ? state.articles : null;
+}
+
+// ─── コピー ───────────────────────────────────────────────────────────────────
+
+document.getElementById('btn-copy').addEventListener('click', async () => {
+  const articles = await getArticles();
+  if (!articles) return;
+  const text = buildShareText(articles);
   try {
     await navigator.clipboard.writeText(text);
-    const toast = document.getElementById('share-toast');
-    toast.classList.add('visible');
-    setTimeout(() => toast.classList.remove('visible'), 2500);
   } catch (_) {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -300,9 +306,156 @@ document.getElementById('btn-share').addEventListener('click', async () => {
     ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    const toast = document.getElementById('share-toast');
-    toast.classList.add('visible');
-    setTimeout(() => toast.classList.remove('visible'), 2500);
+  }
+  showToast('📋 コピーしました！');
+});
+
+// ─── LINE 送信 ────────────────────────────────────────────────────────────────
+
+async function lineNotify(token, message) {
+  const res = await fetch('https://notify-api.line.me/api/notify', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'message=' + encodeURIComponent(message)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || res.status);
+  }
+}
+
+function buildLineMessages(articles) {
+  const dateStr = new Date().toLocaleDateString('ja-JP', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+  });
+  // ヘッダーメッセージ
+  const messages = [`📰 WSJ Daily Digest\n${dateStr}\n全${articles.length}件`];
+
+  // 記事ごとに1メッセージ（950文字以内に収める）
+  articles.forEach((a, i) => {
+    let msg = `【${i + 1}/${articles.length}】${a.title || '(タイトルなし)'}\n\n`;
+    const summary = a.summary || '';
+    const why = a.whyItMatters ? `\n💡 ${a.whyItMatters}` : '';
+    const link = `\n\n🔗 ${a.url}`;
+    const body = summary + why;
+    // 950文字を超える場合は truncate
+    const maxBody = 950 - msg.length - link.length;
+    msg += body.length > maxBody ? body.slice(0, maxBody - 1) + '…' : body;
+    msg += link;
+    messages.push(msg);
+  });
+  return messages;
+}
+
+document.getElementById('btn-line').addEventListener('click', async () => {
+  const articles = await getArticles();
+  if (!articles) return;
+
+  const { lineToken } = await chrome.storage.local.get('lineToken');
+
+  if (lineToken) {
+    const btn = document.getElementById('btn-line');
+    btn.disabled = true;
+    const messages = buildLineMessages(articles);
+    try {
+      for (let i = 0; i < messages.length; i++) {
+        showToast(`💬 LINE送信中… (${i + 1}/${messages.length})`);
+        await lineNotify(lineToken, messages[i]);
+        if (i < messages.length - 1) await new Promise(r => setTimeout(r, 500));
+      }
+      showToast('💬 LINEに送信しました！');
+    } catch (e) {
+      showToast(`⚠️ LINE送信エラー: ${e.message}`);
+    } finally {
+      btn.disabled = false;
+    }
+  } else {
+    const text = buildShareText(articles);
+    window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text.slice(0, 1000))}`, '_blank');
+    showToast('💬 LINEを開きました');
+  }
+});
+
+// ─── Slack 送信 ───────────────────────────────────────────────────────────────
+
+function buildSlackPayload(articles) {
+  const dateStr = new Date().toLocaleDateString('ja-JP', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+  });
+
+  const blocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: '📰 WSJ Daily Digest', emoji: true }
+    },
+    {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: `${dateStr}　全 ${articles.length} 件` }]
+    },
+    { type: 'divider' }
+  ];
+
+  articles.forEach((a, i) => {
+    let dateTag = '';
+    if (a.publishedAt) {
+      try {
+        const d = new Date(a.publishedAt);
+        if (!isNaN(d.getTime())) {
+          dateTag = d.toLocaleString('ja-JP', {
+            timeZone: 'Asia/Tokyo',
+            year: 'numeric', month: 'long', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          }) + ' JST';
+        }
+      } catch (_) {}
+    }
+
+    let body = a.summary || '';
+    if (a.whyItMatters) body += `\n\n💡 *Why it matters*\n${a.whyItMatters}`;
+    // Slack section text は 3000 文字上限
+    if (body.length > 2800) body = body.slice(0, 2800) + '…';
+
+    const titleLine = `*${i + 1}. <${a.url}|${a.title || '(タイトルなし)'}>*${dateTag ? `　🕐 ${dateTag}` : ''}`;
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: `${titleLine}\n${body}` }
+    });
+    blocks.push({ type: 'divider' });
+  });
+
+  return { blocks };
+}
+
+document.getElementById('btn-slack').addEventListener('click', async () => {
+  const articles = await getArticles();
+  if (!articles) return;
+
+  const { slackWebhook } = await chrome.storage.local.get('slackWebhook');
+  if (!slackWebhook) {
+    showToast('⚠️ Slack Webhook URL が未設定です（オプション画面で設定してください）');
+    return;
+  }
+
+  const btn = document.getElementById('btn-slack');
+  btn.disabled = true;
+  try {
+    const res = await fetch(slackWebhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildSlackPayload(articles))
+    });
+    if (res.ok) {
+      showToast('🟣 Slackに送信しました！');
+    } else {
+      showToast(`⚠️ Slack送信エラー: ${res.status}`);
+    }
+  } catch (e) {
+    showToast(`⚠️ Slack送信エラー: ${e.message}`);
+  } finally {
+    btn.disabled = false;
   }
 });
 
