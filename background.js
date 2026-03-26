@@ -31,20 +31,28 @@ async function updateState(sessionId, patch) {
 /** 記事本文を抽出する（content.js を注入して呼び出す） */
 async function extractArticle(tabId) {
   try {
-    // content.js を注入して window.__wsjExtract を定義させる
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ['content.js']
-    });
-
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       func: () => (window.__wsjExtract ? window.__wsjExtract() : { title: document.title, text: '' })
     });
-
     return results[0]?.result || { title: '', text: '' };
   } catch (e) {
     return { title: '', text: '' };
+  }
+}
+
+/** NHK 記事本文を抽出する（content_nhk.js を注入して呼び出す） */
+async function extractArticleNhk(tabId) {
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content_nhk.js'] });
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => (window.__nhkExtract ? window.__nhkExtract() : { title: document.title, text: '', publishedAt: '' })
+    });
+    return results[0]?.result || { title: '', text: '', publishedAt: '' };
+  } catch (e) {
+    return { title: '', text: '', publishedAt: '' };
   }
 }
 
@@ -262,6 +270,110 @@ function buildNhkSlackPayload(articles) {
     blocks.push({ type: 'divider' });
   });
   return { blocks };
+}
+
+// ─── NHK ダイジェスト本体ロジック ────────────────────────────────────────────
+
+async function collectNhkArticleUrls(tabId) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(2000);
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => {
+          function isArticleUrl(href) {
+            try {
+              const u = new URL(href);
+              const host = u.hostname;
+              const path = u.pathname;
+              if (host.indexOf('nhk') < 0) return false;
+              if (/\/newsweb\/na\/na-/.test(path)) return true;
+              if (/\/news\/html\/\d{8}\//.test(path)) return true;
+              return false;
+            } catch (_) { return false; }
+          }
+          const seen = new Set();
+          const urls = [];
+          for (const a of document.querySelectorAll('a[href]')) {
+            const url = a.href.split('?')[0];
+            if (!seen.has(url) && isArticleUrl(url)) {
+              seen.add(url);
+              urls.push(url);
+            }
+            if (urls.length >= 20) break;
+          }
+          return urls;
+        }
+      });
+      const urls = results[0]?.result || [];
+      if (urls.length > 0) return urls;
+    } catch (e) { console.error('NHK URL収集エラー:', e); }
+  }
+  return [];
+}
+
+async function runNhkDigest(nhkTabId, sessionId, apiKey) {
+  const articleUrls = await collectNhkArticleUrls(nhkTabId);
+
+  if (articleUrls.length === 0) {
+    await updateState(sessionId, {
+      status: 'error',
+      error: '記事URLが見つかりませんでした。NHKニュースのトップページで実行してください。'
+    });
+    return [];
+  }
+
+  await updateState(sessionId, { status: 'processing', total: articleUrls.length, processed: 0 });
+
+  const articles = [];
+  for (let i = 0; i < articleUrls.length; i++) {
+    const url = articleUrls[i];
+    await updateState(sessionId, { processed: i });
+
+    let entry = { url, title: url, text: '', summary: '', whyItMatters: '', publishedAt: '' };
+    let articleTabId = null;
+    try {
+      const newTab = await chrome.tabs.create({ url, active: false });
+      articleTabId = newTab.id;
+      await waitForTabLoad(articleTabId);
+      await sleep(2500);
+      let content = await extractArticleNhk(articleTabId);
+      if (!content.text || content.text.length < 100) {
+        await sleep(2000);
+        content = await extractArticleNhk(articleTabId);
+      }
+      entry.title = content.title || url;
+      entry.text = content.text || '';
+      entry.publishedAt = content.publishedAt || '';
+    } catch (e) {
+      console.error('NHK記事読み込みエラー:', url, e);
+    } finally {
+      if (articleTabId !== null) {
+        try { await chrome.tabs.remove(articleTabId); } catch (_) {}
+      }
+    }
+
+    if (entry.text && apiKey) {
+      try {
+        const result = await summarize(apiKey, entry.title, entry.text);
+        entry.summary = result.summary;
+        entry.whyItMatters = result.whyItMatters;
+      } catch (e) {
+        entry.summary = `⚠️ 要約エラー: ${e.message}`;
+      }
+    } else if (!apiKey) {
+      entry.summary = '⚠️ APIキーが設定されていません。';
+    } else {
+      entry.summary = '⚠️ 本文の取得に失敗しました。';
+    }
+
+    articles.push(entry);
+    await updateState(sessionId, { articles: [...articles], processed: i + 1 });
+    if (i < articleUrls.length - 1) await sleep(1000);
+  }
+
+  await updateState(sessionId, { status: 'done', processed: articleUrls.length });
+  return articles;
 }
 
 // ─── 記事URL収集（タブから）────────────────────────────────────────────────────
@@ -492,9 +604,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // ─── 拡張アイコンクリック ─────────────────────────────────────────────────────
 
 chrome.action.onClicked.addListener(async tab => {
-  if (!tab.url || !tab.url.includes('wsj.com')) {
-    return;
-  }
+  const url = tab.url || '';
+  const isWsj = url.includes('wsj.com');
+  const isNhk = url.includes('nhk.or.jp') || url.includes('.nhk/') || url.includes('nhk/newsweb');
+
+  if (!isWsj && !isNhk) return;
 
   const { apiKey } = await chrome.storage.local.get('apiKey');
   const sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -505,10 +619,16 @@ chrome.action.onClicked.addListener(async tab => {
     }
   });
 
+  const digestPage = isNhk ? 'digest_nhk.html' : 'digest.html';
   await chrome.tabs.create({
-    url: chrome.runtime.getURL(`digest.html?session=${sessionId}`)
+    url: chrome.runtime.getURL(`${digestPage}?session=${sessionId}`)
   });
 
   await sleep(600);
-  await runDigest(tab.id, sessionId, apiKey);
+
+  if (isNhk) {
+    await runNhkDigest(tab.id, sessionId, apiKey);
+  } else {
+    await runDigest(tab.id, sessionId, apiKey);
+  }
 });

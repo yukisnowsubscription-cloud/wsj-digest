@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📺 NHK Daily Digest</title>
+  <style>
+    :root {
+      --accent: #0066b3;
+      --accent-dark: #004c8a;
+      --bg: #121212;
+      --card-bg: #1e1e1e;
+      --text: #e8e8e8;
+      --muted: #aaa;
+      --border: #333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Meiryo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--accent);
+      color: #fff;
+      padding: 20px 32px 16px;
+      border-bottom: 4px solid var(--accent-dark);
+    }
+    header h1 { font-size: 28px; font-weight: bold; letter-spacing: -0.5px; }
+    header .date { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+
+    #progress-wrap {
+      background: #1e1e1e;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 14px;
+      color: var(--muted);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid #444;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #progress-bar-track {
+      flex: 1; height: 6px;
+      background: #333;
+      border-radius: 3px; overflow: hidden;
+    }
+    #progress-bar-fill {
+      height: 100%; background: var(--accent);
+      border-radius: 3px;
+      transition: width 0.4s ease; width: 0%;
+    }
+
+    #error-box {
+      margin: 24px 32px; padding: 16px 20px;
+      background: #2a1a1a; border: 1px solid #7a3030;
+      border-radius: 6px; color: #f08080;
+      font-size: 14px; display: none;
+    }
+
+    #articles {
+      max-width: 860px; margin: 28px auto;
+      padding: 0 24px;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+
+    .article-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 24px 28px 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } }
+
+    .article-date { font-size: 12px; color: #888; margin-bottom: 6px; }
+
+    .article-card h2 { font-size: 18px; line-height: 1.4; margin-bottom: 14px; }
+    .article-card h2 a { color: #4a9fd4; text-decoration: none; }
+    .article-card h2 a:hover { text-decoration: underline; }
+
+    .summary { font-size: 15px; line-height: 1.75; color: #d0d0d0; margin-bottom: 14px; }
+
+    .why-box {
+      background: #0e1a2a; border-left: 3px solid #2a6090;
+      padding: 12px 16px; border-radius: 0 6px 6px 0; margin-bottom: 16px;
+    }
+    .why-box .why-label {
+      font-size: 12px; font-weight: bold; color: #6aaddd;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .why-box p { font-size: 14px; line-height: 1.65; color: #a8c8e8; }
+
+    .card-footer { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+
+    .btn-deep-dive {
+      background: #1e1e1e; border: 1.5px solid var(--accent);
+      color: var(--accent); padding: 7px 16px;
+      border-radius: 20px; cursor: pointer;
+      font-size: 13px; font-weight: 600; transition: all 0.15s;
+    }
+    .btn-deep-dive:hover { background: var(--accent); color: #fff; }
+    .btn-deep-dive:disabled { opacity: 0.5; cursor: default; background: #1e1e1e; }
+
+    .deep-dive-result {
+      margin-top: 18px; background: #16121e;
+      border: 1px solid #5040a0; border-radius: 6px; padding: 18px 20px;
+    }
+    .deep-dive-result h3 {
+      font-size: 14px; font-weight: bold; color: #a080e0;
+      margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .deep-dive-result p { font-size: 14px; line-height: 1.75; color: #c8b8e8; }
+
+    .loading-inline {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--muted); margin-top: 14px;
+    }
+
+    #done-banner { max-width: 860px; margin: 0 auto 32px; padding: 0 24px; display: none; }
+    #done-banner .inner {
+      background: #102010; border: 1px solid #2d6a2f;
+      border-radius: 6px; padding: 14px 20px;
+      font-size: 14px; color: #80c880;
+    }
+
+    .share-wrap {
+      max-width: 860px; margin: 0 auto 16px; padding: 0 24px;
+      display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .btn-share {
+      color: #fff; border: none; padding: 10px 20px;
+      border-radius: 6px; font-size: 14px; font-weight: bold;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-share:hover { opacity: 0.85; }
+    .btn-share:disabled { opacity: 0.4; cursor: default; }
+    .btn-copy  { background: #444; }
+    .btn-slack { background: #4a154b; }
+    .share-toast { font-size: 13px; color: #80c880; opacity: 0; transition: opacity 0.3s; }
+    .share-toast.visible { opacity: 1; }
+
+    footer { text-align: center; padding: 24px; font-size: 12px; color: #666; }
+    footer a { color: #666; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>📺 NHK Daily Digest</h1>
+    <div class="date" id="date-label"></div>
+  </header>
+
+  <div id="progress-wrap">
+    <div class="spinner" id="spinner"></div>
+    <span id="status-text">準備中...</span>
+    <div id="progress-bar-track">
+      <div id="progress-bar-fill"></div>
+    </div>
+    <span id="count-text" style="white-space:nowrap"></span>
+  </div>
+
+  <div id="error-box"></div>
+  <div id="articles"></div>
+
+  <div id="done-banner">
+    <div class="inner" id="done-inner"></div>
+  </div>
+
+  <div class="share-wrap" id="share-wrap">
+    <button class="btn-share btn-copy"  id="btn-copy">📋 コピー</button>
+    <button class="btn-share btn-slack" id="btn-slack">🟣 Slack</button>
+    <span class="share-toast" id="share-toast"></span>
+  </div>
+
+  <footer>
+    <a href="#" id="options-link">⚙️ 設定</a>
+  </footer>
+
+  <script src="digest_nhk.js"></script>
+</body>
+</html>

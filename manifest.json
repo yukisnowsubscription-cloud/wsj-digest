@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "WSJ Daily Digest",
-  "version": "1.0",
-  "description": "WSJの記事を自動収集・要約してダイジェストを作成します",
+  "name": "News Daily Digest",
+  "version": "1.1",
+  "description": "WSJ・NHKの記事を自動収集・要約してダイジェストを作成します",
   "permissions": [
     "activeTab",
     "scripting",
@@ -15,16 +15,17 @@
   ],
   "host_permissions": [
     "https://*.wsj.com/*",
+    "https://*.nhk.or.jp/*",
+    "https://*.web.nhk/*",
     "https://api.openai.com/*",
     "https://notify-api.line.me/*",
-    "https://hooks.slack.com/*",
-    "https://www3.nhk.or.jp/*"
+    "https://hooks.slack.com/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "WSJ Daily Digest"
+    "default_title": "News Daily Digest"
   },
   "options_page": "options.html"
 }
