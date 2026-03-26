@@ -336,10 +336,11 @@ async function runNhkDigest(nhkTabId, sessionId, apiKey) {
       const newTab = await chrome.tabs.create({ url, active: false });
       articleTabId = newTab.id;
       await waitForTabLoad(articleTabId);
-      await sleep(2500);
+      await sleep(3000);
       let content = await extractArticleNhk(articleTabId);
-      if (!content.text || content.text.length < 100) {
-        await sleep(2000);
+      // Next.js/RSC のハイドレーション完了を待ちながら最大2回リトライ
+      for (let retry = 0; retry < 2 && (!content.text || content.text.length < 100); retry++) {
+        await sleep(3000);
         content = await extractArticleNhk(articleTabId);
       }
       entry.title = content.title || url;
