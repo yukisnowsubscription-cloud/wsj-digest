@@ -9,11 +9,16 @@
     "clipboardWrite",
     "clipboardRead",
     "tabs",
-    "storage"
+    "storage",
+    "alarms",
+    "notifications"
   ],
   "host_permissions": [
     "https://*.wsj.com/*",
-    "https://api.openai.com/*"
+    "https://api.openai.com/*",
+    "https://notify-api.line.me/*",
+    "https://hooks.slack.com/*",
+    "https://www3.nhk.or.jp/*"
   ],
   "background": {
     "service_worker": "background.js"

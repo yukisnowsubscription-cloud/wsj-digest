@@ -183,14 +183,85 @@ function buildSlackPayload(articles) {
   return { blocks };
 }
 
-/** Slack Incoming Webhook で送信（Block Kit） */
-async function sendToSlack(webhookUrl, articles) {
+/** Slack Incoming Webhook で送信（任意ペイロード） */
+async function sendSlackPayload(webhookUrl, payload) {
   const res = await fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildSlackPayload(articles))
+    body: JSON.stringify(payload)
   });
   if (!res.ok) throw new Error(`Slack webhook ${res.status}`);
+}
+
+/** Slack Incoming Webhook で送信（Block Kit） */
+async function sendToSlack(webhookUrl, articles) {
+  await sendSlackPayload(webhookUrl, buildSlackPayload(articles));
+}
+
+// ─── NHK RSS 取得・送信 ───────────────────────────────────────────────────────
+
+/** NHK トップニュース RSS を取得してパース */
+async function fetchNhkArticles(maxItems = 10) {
+  const res = await fetch('https://www3.nhk.or.jp/rss/news/cat0.xml');
+  if (!res.ok) throw new Error(`NHK RSS ${res.status}`);
+  const text = await res.text();
+
+  const items = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  let m;
+  while ((m = itemRegex.exec(text)) !== null && items.length < maxItems) {
+    const block = m[1];
+    const get = (tag) => {
+      const r = new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, 'i');
+      const match = r.exec(block);
+      return match ? match[1].trim() : '';
+    };
+    items.push({
+      title: get('title'),
+      description: get('description'),
+      url: get('link'),
+      publishedAt: get('pubDate')
+    });
+  }
+  return items;
+}
+
+/** NHK 用 Slack Block Kit ペイロードを生成 */
+function buildNhkSlackPayload(articles) {
+  const dateStr = new Date().toLocaleString('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+    hour: '2-digit', minute: '2-digit'
+  });
+  const blocks = [
+    { type: 'header', text: { type: 'plain_text', text: '📺 NHK ニュース速報', emoji: true } },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: `${dateStr} JST　全 ${articles.length} 件` }] },
+    { type: 'divider' }
+  ];
+  articles.forEach((a, i) => {
+    let dateTag = '';
+    if (a.publishedAt) {
+      try {
+        const d = new Date(a.publishedAt);
+        if (!isNaN(d.getTime())) {
+          dateTag = d.toLocaleString('ja-JP', {
+            timeZone: 'Asia/Tokyo',
+            month: 'long', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          }) + ' JST';
+        }
+      } catch (_) {}
+    }
+    const titleLine = `*${i + 1}. <${a.url}|${a.title || '(タイトルなし)'}>*${dateTag ? `　🕐 ${dateTag}` : ''}`;
+    let body = a.description || '';
+    if (body.length > 2800) body = body.slice(0, 2800) + '…';
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: `${titleLine}\n${body}` }
+    });
+    blocks.push({ type: 'divider' });
+  });
+  return { blocks };
 }
 
 // ─── 記事URL収集（タブから）────────────────────────────────────────────────────
@@ -326,9 +397,21 @@ function setupAlarm(enabled, timeStr) {
 }
 
 // オプション画面からの設定更新を受け取る
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === 'updateAlarm') {
     setupAlarm(msg.autoSendEnabled, msg.autoSendTime);
+  } else if (msg.type === 'testNhkSlack') {
+    (async () => {
+      try {
+        const articles = await fetchNhkArticles(5);
+        if (articles.length === 0) throw new Error('NHK記事が取得できませんでした');
+        await sendSlackPayload(msg.webhookUrl, buildNhkSlackPayload(articles));
+        sendResponse({ ok: true });
+      } catch (e) {
+        sendResponse({ ok: false, error: e.message });
+      }
+    })();
+    return true; // 非同期レスポンス
   }
 });
 
@@ -385,7 +468,15 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
   if (slackWebhook) {
     try { await sendToSlack(slackWebhook, articles); }
-    catch (e) { errors.push('Slack: ' + e.message); }
+    catch (e) { errors.push('Slack(WSJ): ' + e.message); }
+
+    // NHK ニュースも送信
+    try {
+      const nhkArticles = await fetchNhkArticles(10);
+      if (nhkArticles.length > 0) {
+        await sendSlackPayload(slackWebhook, buildNhkSlackPayload(nhkArticles));
+      }
+    } catch (e) { errors.push('Slack(NHK): ' + e.message); }
   }
 
   chrome.notifications.create({

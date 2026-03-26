@@ -6,9 +6,9 @@
   <title>WSJ Digest — 設定</title>
   <style>
     :root {
-      --accent: #c41230;
-      --bg: #f9f7f2;
-      --border: #e0dcd5;
+      --accent: #e05070;
+      --bg: #121212;
+      --border: #333;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -16,7 +16,7 @@
     body {
       font-family: 'Arial', sans-serif;
       background: var(--bg);
-      color: #1a1a1a;
+      color: #e8e8e8;
       padding: 40px 32px;
       min-height: 100vh;
     }
@@ -29,7 +29,7 @@
     }
     .subtitle {
       font-size: 13px;
-      color: #777;
+      color: #999;
       margin-bottom: 32px;
     }
 
@@ -40,7 +40,7 @@
       display: block;
       font-size: 13px;
       font-weight: bold;
-      color: #444;
+      color: #bbb;
       margin-bottom: 8px;
     }
     input[type="password"],
@@ -51,7 +51,8 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       font-size: 14px;
-      background: #fff;
+      background: #1e1e1e;
+      color: #e8e8e8;
       outline: none;
       transition: border-color 0.15s;
     }
@@ -61,10 +62,10 @@
 
     .hint {
       font-size: 12px;
-      color: #999;
+      color: #777;
       margin-top: 6px;
     }
-    .hint a { color: #999; }
+    .hint a { color: #777; }
 
     .toggle-btn {
       background: none;
@@ -98,14 +99,14 @@
       font-size: 13px;
     }
     #message.success {
-      background: #edf7ed;
-      border: 1px solid #a3d9a5;
-      color: #2d6a2f;
+      background: #102010;
+      border: 1px solid #2d6a2f;
+      color: #80c880;
     }
     #message.error {
-      background: #fff3f3;
-      border: 1px solid #f5c6c6;
-      color: #c0392b;
+      background: #2a1a1a;
+      border: 1px solid #7a3030;
+      color: #f08080;
     }
 
     hr {
@@ -121,9 +122,40 @@
     .info-section ol {
       padding-left: 20px;
       font-size: 13px;
-      color: #555;
+      color: #aaa;
       line-height: 2;
     }
+    .section-title {
+      font-size: 15px;
+      font-family: 'Georgia', serif;
+      color: #e8e8e8;
+      margin-bottom: 16px;
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: #ccc;
+      margin-bottom: 4px;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    input[type="time"] {
+      width: 140px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      background: #1e1e1e;
+      color: #e8e8e8;
+      outline: none;
+    }
+    input[type="time"]:focus { border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -144,6 +176,41 @@
   <button class="save-btn" id="save-btn">保存する</button>
 
   <div id="message"></div>
+
+  <hr />
+
+  <p class="section-title">📤 自動送信設定</p>
+
+  <div class="field">
+    <div class="checkbox-row">
+      <input type="checkbox" id="auto-send-enabled" />
+      <label for="auto-send-enabled" style="margin:0;font-weight:normal;color:#ccc">毎朝自動でダイジェストを収集・送信する</label>
+    </div>
+    <p class="hint" style="margin-top:8px">Chromeが起動している必要があります。</p>
+  </div>
+
+  <div class="field">
+    <label for="auto-send-time">送信時刻</label>
+    <input type="time" id="auto-send-time" value="07:00" />
+  </div>
+
+  <div class="field">
+    <label for="line-token">LINE Notify トークン</label>
+    <input type="password" id="line-token" placeholder="LINE Notifyのトークンを貼り付け" autocomplete="off" />
+    <p class="hint">
+      <a href="https://notify-bot.line.me/my/" target="_blank">notify-bot.line.me</a> でトークンを発行してください。
+    </p>
+  </div>
+
+  <div class="field">
+    <label for="slack-webhook">Slack Incoming Webhook URL</label>
+    <input type="text" id="slack-webhook" placeholder="https://hooks.slack.com/services/..." autocomplete="off" />
+    <p class="hint">Slackの App 設定 → Incoming Webhooks から作成してください。</p>
+    <button class="save-btn" id="test-slack-btn" style="margin-top:10px;background:#2a5a2a;font-size:13px;padding:8px 18px">🧪 テスト送信（NHKニュース5件）</button>
+  </div>
+
+  <button class="save-btn" id="save-auto-btn">自動送信設定を保存</button>
+  <div id="message-auto" style="display:none;margin-top:16px;padding:10px 16px;border-radius:6px;font-size:13px"></div>
 
   <hr />
 
