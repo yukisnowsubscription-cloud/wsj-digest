@@ -90,6 +90,22 @@
     }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } }
 
+    /* ─── カテゴリバッジ ─────────────────────────── */
+    .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .badge {
+      font-size: 12px; font-weight: 600; padding: 3px 10px;
+      border-radius: 20px; white-space: nowrap; letter-spacing: 0.3px;
+    }
+
+    .section-head {
+      font-weight: 600; color: var(--text); display: block;
+      margin-top: 12px; margin-bottom: 4px; font-size: 13px;
+      letter-spacing: 0.3px;
+    }
+    .section-head:first-of-type { margin-top: 0; }
+    .key-points { padding-left: 1.2em; margin: 4px 0 0; }
+    .key-points li { font-size: 14px; line-height: 1.7; color: #d0d0d0; margin-bottom: 2px; }
+
     .article-date { font-size: 12px; color: #888; margin-bottom: 6px; }
 
     .article-card h2 { font-size: 18px; line-height: 1.4; margin-bottom: 14px; }

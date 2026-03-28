@@ -56,12 +56,46 @@ async function extractArticleNhk(tabId) {
   }
 }
 
-/** ChatGPT API で要約する */
+/** カテゴリ一覧（ChatGPT に渡す選択肢） */
+const CATEGORY_LIST = [
+  '政治', '経済', '金融・マーケット', '国際情勢', '外交', '安全保障',
+  '社会', '災害・事故', '科学・技術', '環境・気候', '医療・健康',
+  '労働・雇用', '企業・産業', '司法・犯罪', 'スポーツ', '文化・エンタメ', 'その他'
+];
+
+/** ChatGPT API で分析する */
 async function summarize(apiKey, title, text) {
   const prompt =
-    `以下の記事を日本語で要約してください。Why it mattersも含めて。\n` +
+    `以下の記事を分析してください。\n` +
+    `要約ではなく、以下を明確にしてください。\n` +
+    `- このニュースは結局何の話か\n` +
+    `- なぜ今それが起きているのか\n` +
+    `- 誰のどういうインセンティブが働いているのか\n` +
+    `- 誰が得をして誰が不利になるのか\n` +
+    `- 今後どこを見ればよいのか\n\n` +
+    `【重要な指示】\n` +
+    `- 単なる要約や和訳にしない\n` +
+    `- 表面的な説明で終わらせない\n` +
+    `- 業界構造、制度変更、プレイヤーの思惑、資金の流れ、競争環境の変化があれば必ず触れる\n` +
+    `- 「建前」と「本音」が違う場合は分けて書く\n` +
+    `- 記事の内容と、そこから読み取れる分析を混同しない\n` +
+    `- 読み手は、情報の圧縮よりも"解像度の高い理解"を求めている\n` +
+    `- 中学生でもわかる導入にしつつ、中身は浅くしない\n` +
+    `- 重要なニュアンスは落とさない\n` +
+    `- 曖昧な場合は「推測だが」と明示する\n\n` +
     `回答は必ず次のJSON形式のみで返してください（余分なテキスト不要）:\n` +
-    `{"summary":"要約本文","why_it_matters":"なぜ重要か"}\n\n` +
+    `{\n` +
+    `  "categories": ["カテゴリ1", "カテゴリ2"],\n` +
+    `  "one_liner": "① 一言で言うと（1文で本質を突く）",\n` +
+    `  "why_it_matters": "② Why it matters（なぜ重要か、2-3文）",\n` +
+    `  "key_points": ["③ 要点1", "要点2", "要点3"],\n` +
+    `  "essence": "④ 本質（表面的な話の裏にある構造、1-2文）",\n` +
+    `  "background": "⑤ 背景・構造（なぜ今これが起きているか）",\n` +
+    `  "winners_losers": "⑥ 勝者 / 敗者（誰が得をし、誰が不利か）",\n` +
+    `  "watch_next": "⑦ 今後の注目点",\n` +
+    `  "comment": "⑧ 一言コメント（読者への示唆）"\n` +
+    `}\n\n` +
+    `categoriesは次の中から1〜3つ選んでください: ${CATEGORY_LIST.join('、')}\n\n` +
     `記事タイトル: ${title}\n\n記事本文:\n${text}`;
 
   // 429 (レート制限) の場合は最大3回リトライする
@@ -76,13 +110,12 @@ async function summarize(apiKey, title, text) {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 800,
+        max_tokens: 1500,
         temperature: 0.3
       })
     });
 
     if (res.status === 429) {
-      // レート制限 → 待ってリトライ（5秒, 10秒, 15秒と段階的に）
       await sleep((attempt + 1) * 5000);
       continue;
     }
@@ -102,14 +135,22 @@ async function summarize(apiKey, title, text) {
     if (m) {
       const parsed = JSON.parse(m[0]);
       return {
-        summary: parsed.summary || raw,
-        whyItMatters: parsed.why_it_matters || ''
+        categories: parsed.categories || [],
+        oneLiner: parsed.one_liner || '',
+        whyItMatters: parsed.why_it_matters || '',
+        keyPoints: parsed.key_points || [],
+        essence: parsed.essence || '',
+        background: parsed.background || '',
+        winnersLosers: parsed.winners_losers || '',
+        watchNext: parsed.watch_next || '',
+        comment: parsed.comment || '',
+        summary: parsed.one_liner || raw
       };
     }
   } catch (_) {
     // fallthrough
   }
-  return { summary: raw, whyItMatters: '' };
+  return { categories: [], oneLiner: '', whyItMatters: '', keyPoints: [], essence: '', background: '', winnersLosers: '', watchNext: '', comment: '', summary: raw };
 }
 
 // ─── 共有テキスト生成 ─────────────────────────────────────────────────────────
@@ -121,7 +162,8 @@ function buildShareText(articles) {
   let text = `📰 WSJ Daily Digest\n${dateStr}\n`;
   text += '━'.repeat(20) + '\n\n';
   articles.forEach((a, i) => {
-    text += `【${i + 1}】${a.title || '(タイトルなし)'}\n`;
+    const cats = (a.categories || []).join(' / ');
+    text += `【${i + 1}】${cats ? `[${cats}] ` : ''}${a.title || '(タイトルなし)'}\n`;
     if (a.publishedAt) {
       try {
         const d = new Date(a.publishedAt);
@@ -130,8 +172,15 @@ function buildShareText(articles) {
         }
       } catch (_) {}
     }
-    text += `\n${a.summary || ''}\n`;
+    if (a.oneLiner) text += `\n① ${a.oneLiner}\n`;
     if (a.whyItMatters) text += `\n💡 Why it matters\n${a.whyItMatters}\n`;
+    if (a.keyPoints && a.keyPoints.length > 0) {
+      text += `\n③ 要点\n`;
+      a.keyPoints.forEach(p => { text += `・${p}\n`; });
+    }
+    if (a.essence) text += `\n④ 本質\n${a.essence}\n`;
+    if (a.winnersLosers) text += `\n⑥ 勝者/敗者\n${a.winnersLosers}\n`;
+    if (a.watchNext) text += `\n⑦ 注目点\n${a.watchNext}\n`;
     text += `\n🔗 ${a.url}\n`;
     text += '\n' + '─'.repeat(20) + '\n\n';
   });
@@ -178,10 +227,18 @@ function buildSlackPayload(articles) {
         }
       } catch (_) {}
     }
-    let body = a.summary || '';
-    if (a.whyItMatters) body += `\n\n💡 *Why it matters*\n${a.whyItMatters}`;
-    if (body.length > 2800) body = body.slice(0, 2800) + '…';
+    const cats = (a.categories || []).map(c => `\`${c}\``).join(' ');
     const titleLine = `*${i + 1}. <${a.url}|${a.title || '(タイトルなし)'}>*${dateTag ? `　🕐 ${dateTag}` : ''}`;
+    let body = cats ? cats + '\n' : '';
+    if (a.oneLiner) body += `① ${a.oneLiner}\n`;
+    if (a.whyItMatters) body += `\n💡 *Why it matters*\n${a.whyItMatters}\n`;
+    if (a.keyPoints && a.keyPoints.length > 0) {
+      body += `\n*③ 要点*\n`;
+      a.keyPoints.forEach(p => { body += `• ${p}\n`; });
+    }
+    if (a.winnersLosers) body += `\n*⑥ 勝者/敗者*\n${a.winnersLosers}\n`;
+    if (a.watchNext) body += `\n*⑦ 注目点*\n${a.watchNext}`;
+    if (body.length > 2800) body = body.slice(0, 2800) + '…';
     blocks.push({
       type: 'section',
       text: { type: 'mrkdwn', text: `${titleLine}\n${body}` }
@@ -330,7 +387,7 @@ async function runNhkDigest(nhkTabId, sessionId, apiKey) {
     const url = articleUrls[i];
     await updateState(sessionId, { processed: i });
 
-    let entry = { url, title: url, text: '', summary: '', whyItMatters: '', publishedAt: '' };
+    let entry = { url, title: url, text: '', summary: '', whyItMatters: '', publishedAt: '', categories: [], oneLiner: '', keyPoints: [], essence: '', background: '', winnersLosers: '', watchNext: '', comment: '' };
     let articleTabId = null;
     // タブ操作エラー（ドラッグ中など）は最大3回リトライ
     for (let tabAttempt = 0; tabAttempt < 3; tabAttempt++) {
@@ -365,8 +422,7 @@ async function runNhkDigest(nhkTabId, sessionId, apiKey) {
     if (entry.text && apiKey) {
       try {
         const result = await summarize(apiKey, entry.title, entry.text);
-        entry.summary = result.summary;
-        entry.whyItMatters = result.whyItMatters;
+        Object.assign(entry, result);
       } catch (e) {
         entry.summary = `⚠️ 要約エラー: ${e.message}`;
       }
@@ -452,7 +508,7 @@ async function runDigest(wsjTabId, sessionId, apiKey) {
     const url = articleUrls[i];
     await updateState(sessionId, { processed: i });
 
-    let entry = { url, title: url, text: '', summary: '', whyItMatters: '' };
+    let entry = { url, title: url, text: '', summary: '', whyItMatters: '', publishedAt: '', categories: [], oneLiner: '', keyPoints: [], essence: '', background: '', winnersLosers: '', watchNext: '', comment: '' };
     let articleTabId = null;
     try {
       const newTab = await chrome.tabs.create({ url, active: false });
@@ -478,8 +534,7 @@ async function runDigest(wsjTabId, sessionId, apiKey) {
     if (entry.text && apiKey) {
       try {
         const result = await summarize(apiKey, entry.title, entry.text);
-        entry.summary = result.summary;
-        entry.whyItMatters = result.whyItMatters;
+        Object.assign(entry, result);
       } catch (e) {
         entry.summary = `⚠️ 要約エラー: ${e.message}`;
       }

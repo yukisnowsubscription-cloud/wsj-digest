@@ -20,6 +20,37 @@ function esc(str) {
 }
 function nl2br(str) { return esc(str).replace(/\n/g, '<br>'); }
 
+// ─── カテゴリバッジ定義 ──────────────────────────────────────────────────────
+
+const BADGE_STYLES = {
+  '政治':         { emoji: '🏛️', bg: '#EEF2FF', color: '#3730A3', border: '#C7D2FE' },
+  '経済':         { emoji: '📈', bg: '#ECFDF5', color: '#065F46', border: '#6EE7B7' },
+  '金融・マーケット': { emoji: '💹', bg: '#FFFBEB', color: '#92400E', border: '#FCD34D' },
+  '国際情勢':     { emoji: '🌏', bg: '#FFF7ED', color: '#9A3412', border: '#FDBA74' },
+  '外交':         { emoji: '🤝', bg: '#FDF4FF', color: '#6B21A8', border: '#D8B4FE' },
+  '安全保障':     { emoji: '🛡️', bg: '#FEF2F2', color: '#991B1B', border: '#FCA5A5' },
+  '社会':         { emoji: '👥', bg: '#F0F9FF', color: '#0C4A6E', border: '#7DD3FC' },
+  '災害・事故':   { emoji: '🚨', bg: '#FFF1F2', color: '#881337', border: '#FDA4AF' },
+  '科学・技術':   { emoji: '🔬', bg: '#F0FDF4', color: '#14532D', border: '#86EFAC' },
+  '環境・気候':   { emoji: '🌿', bg: '#ECFDF5', color: '#064E3B', border: '#34D399' },
+  '医療・健康':   { emoji: '🏥', bg: '#EFF6FF', color: '#1E3A5F', border: '#93C5FD' },
+  '労働・雇用':   { emoji: '💼', bg: '#FAFAF9', color: '#374151', border: '#D1D5DB' },
+  '企業・産業':   { emoji: '🏭', bg: '#F8FAFC', color: '#1E293B', border: '#CBD5E1' },
+  '司法・犯罪':   { emoji: '⚖️', bg: '#FEF3C7', color: '#78350F', border: '#F59E0B' },
+  'スポーツ':     { emoji: '🏅', bg: '#ECFEFF', color: '#164E63', border: '#67E8F9' },
+  '文化・エンタメ': { emoji: '🎭', bg: '#FDF4FF', color: '#701A75', border: '#E879F9' },
+  'その他':       { emoji: '📰', bg: '#F9FAFB', color: '#4B5563', border: '#D1D5DB' }
+};
+
+function createBadge(category) {
+  const style = BADGE_STYLES[category] || BADGE_STYLES['その他'];
+  const span = document.createElement('span');
+  span.className = 'badge';
+  span.textContent = `${style.emoji} ${category}`;
+  span.style.cssText = `background:${style.bg};color:${style.color};border:1px solid ${style.border}`;
+  return span;
+}
+
 // ─── UI 更新 ─────────────────────────────────────────────────────────────────
 
 function applyState(state) {
@@ -75,6 +106,14 @@ function buildCard(article, index) {
   card.className = 'article-card';
   card.id = `card-${index}`;
 
+  // カテゴリバッジ
+  if (article.categories && article.categories.length > 0) {
+    const badgeRow = document.createElement('div');
+    badgeRow.className = 'badge-row';
+    article.categories.forEach(cat => badgeRow.appendChild(createBadge(cat)));
+    card.appendChild(badgeRow);
+  }
+
   if (article.publishedAt) {
     const dateDiv = document.createElement('div');
     dateDiv.className = 'article-date';
@@ -99,11 +138,15 @@ function buildCard(article, index) {
   h2.appendChild(a);
   card.appendChild(h2);
 
-  const summaryDiv = document.createElement('div');
-  summaryDiv.className = 'summary';
-  summaryDiv.innerHTML = nl2br(article.summary || '');
-  card.appendChild(summaryDiv);
+  // ① 一言で言うと
+  if (article.oneLiner) {
+    const oneLiner = document.createElement('div');
+    oneLiner.className = 'summary';
+    oneLiner.innerHTML = `<span class="section-head">① 一言で言うと</span>${nl2br(article.oneLiner)}`;
+    card.appendChild(oneLiner);
+  }
 
+  // ② Why it matters
   if (article.whyItMatters) {
     const whyBox = document.createElement('div');
     whyBox.className = 'why-box';
@@ -111,6 +154,66 @@ function buildCard(article, index) {
       `<div class="why-label">💡 Why it matters</div>` +
       `<p>${nl2br(article.whyItMatters)}</p>`;
     card.appendChild(whyBox);
+  }
+
+  // ③ 要点
+  if (article.keyPoints && article.keyPoints.length > 0) {
+    const kpDiv = document.createElement('div');
+    kpDiv.className = 'summary';
+    let html = '<span class="section-head">③ 要点</span><ul class="key-points">';
+    article.keyPoints.forEach(p => { html += `<li>${esc(p)}</li>`; });
+    html += '</ul>';
+    kpDiv.innerHTML = html;
+    card.appendChild(kpDiv);
+  }
+
+  // ④ 本質
+  if (article.essence) {
+    const essDiv = document.createElement('div');
+    essDiv.className = 'summary';
+    essDiv.innerHTML = `<span class="section-head">④ 本質</span>${nl2br(article.essence)}`;
+    card.appendChild(essDiv);
+  }
+
+  // ⑤ 背景・構造
+  if (article.background) {
+    const bgDiv = document.createElement('div');
+    bgDiv.className = 'summary';
+    bgDiv.innerHTML = `<span class="section-head">⑤ 背景・構造</span>${nl2br(article.background)}`;
+    card.appendChild(bgDiv);
+  }
+
+  // ⑥ 勝者 / 敗者
+  if (article.winnersLosers) {
+    const wlDiv = document.createElement('div');
+    wlDiv.className = 'summary';
+    wlDiv.innerHTML = `<span class="section-head">⑥ 勝者 / 敗者</span>${nl2br(article.winnersLosers)}`;
+    card.appendChild(wlDiv);
+  }
+
+  // ⑦ 今後の注目点
+  if (article.watchNext) {
+    const wnDiv = document.createElement('div');
+    wnDiv.className = 'summary';
+    wnDiv.innerHTML = `<span class="section-head">⑦ 今後の注目点</span>${nl2br(article.watchNext)}`;
+    card.appendChild(wnDiv);
+  }
+
+  // ⑧ 一言コメント
+  if (article.comment) {
+    const cmDiv = document.createElement('div');
+    cmDiv.className = 'summary';
+    cmDiv.style.cssText = 'font-style:italic;color:#aaa;border-top:1px solid #333;padding-top:10px;margin-top:6px';
+    cmDiv.innerHTML = `<span class="section-head">⑧ 一言コメント</span>${nl2br(article.comment)}`;
+    card.appendChild(cmDiv);
+  }
+
+  // フォールバック: 旧形式の summary のみ
+  if (!article.oneLiner && article.summary) {
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'summary';
+    summaryDiv.innerHTML = nl2br(article.summary);
+    card.appendChild(summaryDiv);
   }
 
   const footer = document.createElement('div');
@@ -216,7 +319,8 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
   });
   let text = `📺 NHK Daily Digest\n${dateStr}\n${'━'.repeat(20)}\n\n`;
   articles.forEach((a, i) => {
-    text += `【${i + 1}】${a.title || '(タイトルなし)'}\n`;
+    const cats = (a.categories || []).join(' / ');
+    text += `【${i + 1}】${cats ? `[${cats}] ` : ''}${a.title || '(タイトルなし)'}\n`;
     if (a.publishedAt) {
       try {
         const d = new Date(a.publishedAt);
@@ -227,8 +331,16 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
         }
       } catch (_) {}
     }
-    text += `\n${a.summary || ''}\n`;
+    if (a.oneLiner) text += `\n① ${a.oneLiner}\n`;
     if (a.whyItMatters) text += `\n💡 Why it matters\n${a.whyItMatters}\n`;
+    if (a.keyPoints && a.keyPoints.length > 0) {
+      text += `\n③ 要点\n`;
+      a.keyPoints.forEach(p => { text += `・${p}\n`; });
+    }
+    if (a.essence) text += `\n④ 本質\n${a.essence}\n`;
+    if (a.winnersLosers) text += `\n⑥ 勝者/敗者\n${a.winnersLosers}\n`;
+    if (a.watchNext) text += `\n⑦ 注目点\n${a.watchNext}\n`;
+    if (!a.oneLiner && a.summary) text += `\n${a.summary}\n`;
     text += `\n🔗 ${a.url}\n\n${'─'.repeat(20)}\n\n`;
   });
 
@@ -280,9 +392,18 @@ document.getElementById('btn-slack').addEventListener('click', async () => {
         }
       } catch (_) {}
     }
+    const cats = (a.categories || []).map(c => `\`${c}\``).join(' ');
     const titleLine = `*${i + 1}. <${a.url}|${a.title || '(タイトルなし)'}>*${dateTag ? `　🕐 ${dateTag}` : ''}`;
-    let body = a.summary || '';
-    if (a.whyItMatters) body += `\n\n💡 *Why it matters*\n${a.whyItMatters}`;
+    let body = cats ? cats + '\n' : '';
+    if (a.oneLiner) body += `① ${a.oneLiner}\n`;
+    if (a.whyItMatters) body += `\n💡 *Why it matters*\n${a.whyItMatters}\n`;
+    if (a.keyPoints && a.keyPoints.length > 0) {
+      body += `\n*③ 要点*\n`;
+      a.keyPoints.forEach(p => { body += `• ${p}\n`; });
+    }
+    if (a.winnersLosers) body += `\n*⑥ 勝者/敗者*\n${a.winnersLosers}\n`;
+    if (a.watchNext) body += `\n*⑦ 注目点*\n${a.watchNext}`;
+    if (!a.oneLiner && a.summary) body += a.summary;
     if (body.length > 2800) body = body.slice(0, 2800) + '…';
     blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `${titleLine}\n${body}` } });
     blocks.push({ type: 'divider' });
