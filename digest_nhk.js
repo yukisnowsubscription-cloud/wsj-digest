@@ -9,6 +9,32 @@ document.getElementById('options-link').addEventListener('click', e => {
   chrome.runtime.openOptionsPage();
 });
 
+// ─── 既読管理 ────────────────────────────────────────────────────────────────
+
+let _readSet = new Set();
+
+async function loadReadArticles() {
+  const { readArticles } = await chrome.storage.local.get('readArticles');
+  _readSet = new Set((readArticles || []).map(a => a.url));
+  return readArticles || [];
+}
+
+async function toggleRead(url, title) {
+  const { readArticles } = await chrome.storage.local.get('readArticles');
+  const list = readArticles || [];
+  const idx = list.findIndex(a => a.url === url);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+    _readSet.delete(url);
+  } else {
+    list.push({ url, title, checkedAt: new Date().toISOString() });
+    _readSet.add(url);
+  }
+  await chrome.storage.local.set({ readArticles: list });
+}
+
+loadReadArticles();
+
 // ─── 状態管理 ────────────────────────────────────────────────────────────────
 
 let renderedCount = 0;
@@ -131,12 +157,31 @@ function buildCard(article, index) {
     card.appendChild(dateDiv);
   }
 
+  // タイトル行（チェックボックス + タイトル）
+  const titleRow = document.createElement('div');
+  titleRow.className = 'title-row';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = 'read-check';
+  checkbox.title = '既読にする';
+  if (_readSet.has(article.url)) {
+    checkbox.checked = true;
+    card.classList.add('read');
+  }
+  checkbox.addEventListener('change', async () => {
+    await toggleRead(article.url, article.title || '');
+    card.classList.toggle('read', checkbox.checked);
+  });
+  titleRow.appendChild(checkbox);
+
   const h2 = document.createElement('h2');
   const a = document.createElement('a');
   a.href = article.url; a.target = '_blank'; a.rel = 'noopener';
   a.textContent = article.title || article.url;
   h2.appendChild(a);
-  card.appendChild(h2);
+  titleRow.appendChild(h2);
+  card.appendChild(titleRow);
 
   // ① 一言で言うと
   if (article.oneLiner) {

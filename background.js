@@ -370,17 +370,25 @@ async function collectNhkArticleUrls(tabId) {
 }
 
 async function runNhkDigest(nhkTabId, sessionId, apiKey) {
-  const articleUrls = await collectNhkArticleUrls(nhkTabId);
+  let articleUrls = await collectNhkArticleUrls(nhkTabId);
+
+  // 既読記事を除外
+  const { readArticles } = await chrome.storage.local.get('readArticles');
+  const readSet = new Set((readArticles || []).map(a => a.url));
+  const skipped = articleUrls.filter(url => readSet.has(url)).length;
+  articleUrls = articleUrls.filter(url => !readSet.has(url));
 
   if (articleUrls.length === 0) {
     await updateState(sessionId, {
       status: 'error',
-      error: '記事URLが見つかりませんでした。NHKニュースのトップページで実行してください。'
+      error: skipped > 0
+        ? `${skipped} 件の記事が見つかりましたが、すべて既読です。既読記事を管理ページからクリアしてください。`
+        : '記事URLが見つかりませんでした。NHKニュースのトップページで実行してください。'
     });
     return [];
   }
 
-  await updateState(sessionId, { status: 'processing', total: articleUrls.length, processed: 0 });
+  await updateState(sessionId, { status: 'processing', total: articleUrls.length, processed: 0, skipped });
 
   const articles = [];
   for (let i = 0; i < articleUrls.length; i++) {

@@ -108,6 +108,24 @@
 
     .article-date { font-size: 12px; color: #888; margin-bottom: 6px; }
 
+    /* ─── 既読チェック ───────────────────────────── */
+    .title-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .read-check {
+      flex-shrink: 0;
+      margin-top: 4px;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .title-row h2 { flex: 1; margin-bottom: 0; }
+    .article-card.read { opacity: 0.45; }
+
     .article-card h2 { font-size: 18px; line-height: 1.4; margin-bottom: 14px; }
     .article-card h2 a { color: #4a9fd4; text-decoration: none; }
     .article-card h2 a:hover { text-decoration: underline; }
@@ -208,6 +226,8 @@
 
   <footer>
     <a href="#" id="options-link">⚙️ 設定</a>
+    <span style="margin:0 8px;color:#444">|</span>
+    <a href="read-history.html" id="history-link">📋 既読記事を管理</a>
   </footer>
 
   <script src="digest_nhk.js"></script>
