@@ -163,6 +163,24 @@
       letter-spacing: 0.3px;
     }
 
+    /* ─── 既読チェック ───────────────────────────── */
+    .title-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .read-check {
+      flex-shrink: 0;
+      margin-top: 4px;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .title-row h2 { flex: 1; margin-bottom: 0; }
+    .article-card.read { opacity: 0.45; }
+
     .article-card h2 {
       font-size: 18px;
       line-height: 1.4;
@@ -360,6 +378,8 @@
 
   <footer>
     <a href="#" id="options-link">⚙️ APIキー設定</a>
+    <span style="margin:0 8px;color:#444">|</span>
+    <a href="read-history.html" id="history-link">📋 既読記事を管理</a>
   </footer>
 
   <script src="digest.js"></script>
