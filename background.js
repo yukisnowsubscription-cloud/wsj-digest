@@ -67,34 +67,38 @@ const CATEGORY_LIST = [
 async function summarize(apiKey, title, text) {
   const prompt =
     `以下の記事を分析してください。\n` +
-    `要約ではなく、以下を明確にしてください。\n` +
-    `- このニュースは結局何の話か\n` +
-    `- なぜ今それが起きているのか\n` +
-    `- 誰のどういうインセンティブが働いているのか\n` +
-    `- 誰が得をして誰が不利になるのか\n` +
-    `- 今後どこを見ればよいのか\n\n` +
-    `【重要な指示】\n` +
-    `- 単なる要約や和訳にしない\n` +
-    `- 表面的な説明で終わらせない\n` +
-    `- 業界構造、制度変更、プレイヤーの思惑、資金の流れ、競争環境の変化があれば必ず触れる\n` +
-    `- 「建前」と「本音」が違う場合は分けて書く\n` +
-    `- 記事の内容と、そこから読み取れる分析を混同しない\n` +
-    `- 読み手は、情報の圧縮よりも"解像度の高い理解"を求めている\n` +
-    `- 中学生でもわかる導入にしつつ、中身は浅くしない\n` +
-    `- 重要なニュアンスは落とさない\n` +
-    `- 曖昧な場合は「推測だが」と明示する\n\n` +
+    `目的：文章を読まずに、構造・因果・利害関係を素早く把握できること。\n` +
+    `情報の網羅より「なぜそうなるか」の理解を最優先にする。\n\n` +
+    `【必須ルール】\n` +
+    `- 抽象表現は禁止。必ず「何が・どう変わり・その結果何が起きるか」まで書く\n` +
+    `- 1文は短く。ただし理解に必要な情報は削らない\n` +
+    `- 各セクションで同じ内容を繰り返さない\n` +
+    `- 図と文章で同じ説明をしない（どちらかに集約）\n` +
+    `- 難しい語は使わず言い換える（ただし浅くしない）\n` +
+    `- 「〜の可能性がある」「〜と考えられる」などの曖昧表現は禁止\n\n` +
     `回答は必ず次のJSON形式のみで返してください（余分なテキスト不要）:\n` +
     `{\n` +
     `  "categories": ["カテゴリ1", "カテゴリ2"],\n` +
-    `  "one_liner": "① 一言で言うと（1文で本質を突く）",\n` +
-    `  "why_it_matters": "② Why it matters（なぜ重要か、2-3文）",\n` +
-    `  "key_points": ["③ 要点1", "要点2", "要点3"],\n` +
-    `  "essence": "④ 本質（表面的な話の裏にある構造、1-2文）",\n` +
-    `  "background": "⑤ 背景・構造（なぜ今これが起きているか）",\n` +
-    `  "winners_losers": "⑥ 勝者 / 敗者（誰が得をし、誰が不利か）",\n` +
-    `  "watch_next": "⑦ 今後の注目点",\n` +
-    `  "comment": "⑧ 一言コメント（読者への示唆）"\n` +
+    `  "one_liner": "① 何が起きたか＋なぜ重要か＋誰が得をするかを含めた2〜3文",\n` +
+    `  "power_structure": "② 矢印に必ず理由ラベルをつける。例：A →[〇〇のため] B →[その結果] C。変化がある場合はBefore/Afterを図で示す",\n` +
+    `  "before_after": "③ 数値または構造の変化を項目ごとに並べた表形式。最終行に「→ その結果：〇〇が起きる」を必ず追記する",\n` +
+    `  "players": ["④ プレイヤー名（役割）：得ること／失うこと → だから今後〇〇が起きる（表面的な損得でなく先の動きまで）", "..."],\n` +
+    `  "essence": "⑤ 「AがBになると、CがDになる」という因果構文で1〜2文。逃げ表現は禁止"\n` +
     `}\n\n` +
+    `【NG例と修正例】\n\n` +
+    `② パワー構造のNG：\n` +
+    `  米国 →[影響力を弱めるため] IMF →[その結果] 中国の影響力が増す。Before: 60% After: 38%\n` +
+    `② パワー構造のOK：\n` +
+    `  【Before】米国 →[拒否権60%] IMF\n` +
+    `  【After】 米国 →[拒否権38%] IMF ←[クオータ財源増] 中国\n\n` +
+    `④ プレイヤー別のNG：\n` +
+    `  中国：影響力を得る → だから今後、国際的な地位を強化する\n` +
+    `④ プレイヤー別のOK：\n` +
+    `  中国：IMFの融資決定に米国が口を出せなくなる → 途上国の不良債権をIMF経由で肩代わりさせる外交カードが使えるようになる\n\n` +
+    `⑤ 本質のNG：\n` +
+    `  トランプがIMFの影響力を弱めると、中国の立場が上がる（①の繰り返し）\n` +
+    `⑤ 本質のOK：\n` +
+    `  米国は「金を出すが決定には関与できない」構造を自ら作った。IMFが中国の債権回収装置になるリスクがある。\n\n` +
     `categoriesは次の中から1〜3つ選んでください: ${CATEGORY_LIST.join('、')}\n\n` +
     `記事タイトル: ${title}\n\n記事本文:\n${text}`;
 
@@ -137,20 +141,17 @@ async function summarize(apiKey, title, text) {
       return {
         categories: parsed.categories || [],
         oneLiner: parsed.one_liner || '',
-        whyItMatters: parsed.why_it_matters || '',
-        keyPoints: parsed.key_points || [],
+        powerStructure: parsed.power_structure || '',
+        beforeAfter: parsed.before_after || '',
+        players: parsed.players || [],
         essence: parsed.essence || '',
-        background: parsed.background || '',
-        winnersLosers: parsed.winners_losers || '',
-        watchNext: parsed.watch_next || '',
-        comment: parsed.comment || '',
         summary: parsed.one_liner || raw
       };
     }
   } catch (_) {
     // fallthrough
   }
-  return { categories: [], oneLiner: '', whyItMatters: '', keyPoints: [], essence: '', background: '', winnersLosers: '', watchNext: '', comment: '', summary: raw };
+  return { categories: [], oneLiner: '', powerStructure: '', beforeAfter: '', players: [], essence: '', summary: raw };
 }
 
 // ─── 共有テキスト生成 ─────────────────────────────────────────────────────────

@@ -343,6 +343,90 @@
       color: #666;
     }
     footer a { color: #666; }
+
+    /* ─── Markdown レンダリング ─────────────────────────── */
+    .summary p, .md-content p {
+      margin: 0 0 8px;
+    }
+    .summary p:last-child, .md-content p:last-child { margin-bottom: 0; }
+
+    .summary table, .md-content table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 8px 0;
+      font-family: 'Arial', sans-serif;
+    }
+    .summary th, .md-content th {
+      background: #2a2a2a;
+      color: var(--text);
+      padding: 6px 10px;
+      border: 1px solid #444;
+      text-align: left;
+      font-weight: 600;
+    }
+    .summary td, .md-content td {
+      padding: 6px 10px;
+      border: 1px solid #383838;
+      color: #d0d0d0;
+      vertical-align: top;
+    }
+    .summary tr:nth-child(even) td, .md-content tr:nth-child(even) td {
+      background: #232323;
+    }
+    .summary code, .md-content code {
+      background: #2a2a2a;
+      color: #e0a060;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+    .summary pre, .md-content pre {
+      background: #1a1a2e;
+      border: 1px solid #3a3a5a;
+      border-radius: 4px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+    .summary pre code, .md-content pre code {
+      background: none;
+      padding: 0;
+      color: #a0c0e8;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .summary strong, .md-content strong { color: var(--text); font-weight: 700; }
+    .summary ul, .summary ol, .md-content ul, .md-content ol {
+      padding-left: 1.4em;
+      margin: 4px 0;
+    }
+    .summary li, .md-content li { line-height: 1.7; margin-bottom: 2px; color: #d0d0d0; }
+
+    .deep-dive-result .md-content p {
+      color: #c8b8e8;
+      font-size: 14px;
+      line-height: 1.75;
+      margin: 0 0 10px;
+    }
+    .deep-dive-result .md-content p:last-child { margin-bottom: 0; }
+    .deep-dive-result .md-content h1,
+    .deep-dive-result .md-content h2,
+    .deep-dive-result .md-content h3 {
+      color: #a080e0;
+      font-size: 14px;
+      font-family: 'Arial', sans-serif;
+      font-weight: bold;
+      margin: 14px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .deep-dive-result .md-content th { background: #2a1a4a; }
+    .deep-dive-result .md-content td { color: #c8b8e8; }
+    .deep-dive-result .md-content ul,
+    .deep-dive-result .md-content ol { padding-left: 1.4em; margin: 4px 0; }
+    .deep-dive-result .md-content li { color: #c8b8e8; line-height: 1.7; margin-bottom: 3px; }
   </style>
 </head>
 <body>
@@ -382,6 +466,7 @@
     <a href="read-history.html" id="history-link">📋 既読記事を管理</a>
   </footer>
 
+  <script src="marked.min.js"></script>
   <script src="digest.js"></script>
 </body>
 </html>

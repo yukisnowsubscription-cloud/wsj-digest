@@ -54,6 +54,10 @@ function nl2br(str) {
   return esc(str).replace(/\n/g, '<br>');
 }
 
+function md(str) {
+  return marked.parse(String(str || ''));
+}
+
 // ─── カテゴリバッジ定義 ──────────────────────────────────────────────────────
 
 const BADGE_STYLES = {
@@ -205,77 +209,51 @@ function buildCard(article, index) {
   if (article.oneLiner) {
     const oneLiner = document.createElement('div');
     oneLiner.className = 'summary';
-    oneLiner.innerHTML = `<span class="section-head">① 一言で言うと</span>${nl2br(article.oneLiner)}`;
+    oneLiner.innerHTML = `<span class="section-head">① 一言で言うと</span>${md(article.oneLiner)}`;
     card.appendChild(oneLiner);
   }
 
-  // ② Why it matters
-  if (article.whyItMatters) {
-    const whyBox = document.createElement('div');
-    whyBox.className = 'why-box';
-    whyBox.innerHTML =
-      `<div class="why-label">💡 Why it matters</div>` +
-      `<p>${nl2br(article.whyItMatters)}</p>`;
-    card.appendChild(whyBox);
+  // ② パワー構造
+  if (article.powerStructure) {
+    const psDiv = document.createElement('div');
+    psDiv.className = 'summary';
+    psDiv.innerHTML = `<span class="section-head">② パワー構造</span><pre style="margin:4px 0;font-family:inherit;white-space:pre-wrap">${esc(article.powerStructure)}</pre>`;
+    card.appendChild(psDiv);
   }
 
-  // ③ 要点
-  if (article.keyPoints && article.keyPoints.length > 0) {
-    const kpDiv = document.createElement('div');
-    kpDiv.className = 'summary';
-    let html = '<span class="section-head">③ 要点</span><ul class="key-points">';
-    article.keyPoints.forEach(p => { html += `<li>${esc(p)}</li>`; });
+  // ③ 何が変わったか
+  if (article.beforeAfter) {
+    const baDiv = document.createElement('div');
+    baDiv.className = 'summary';
+    baDiv.innerHTML = `<span class="section-head">③ 何が変わったか</span>${md(article.beforeAfter)}`;
+    card.appendChild(baDiv);
+  }
+
+  // ④ プレイヤー別まとめ
+  if (article.players && article.players.length > 0) {
+    const plDiv = document.createElement('div');
+    plDiv.className = 'summary';
+    let html = '<span class="section-head">④ プレイヤー別まとめ</span><ul class="key-points">';
+    article.players.forEach(p => { html += `<li>${marked.parseInline(String(p))}</li>`; });
     html += '</ul>';
-    kpDiv.innerHTML = html;
-    card.appendChild(kpDiv);
+    plDiv.innerHTML = html;
+    card.appendChild(plDiv);
   }
 
-  // ④ 本質
+  // ⑤ 本質
   if (article.essence) {
     const essDiv = document.createElement('div');
     essDiv.className = 'summary';
-    essDiv.innerHTML = `<span class="section-head">④ 本質</span>${nl2br(article.essence)}`;
+    essDiv.style.cssText = 'font-style:italic;border-top:1px solid #333;padding-top:10px;margin-top:6px';
+    essDiv.innerHTML = `<span class="section-head">⑤ 本質</span>${md(article.essence)}`;
     card.appendChild(essDiv);
-  }
-
-  // ⑤ 背景・構造
-  if (article.background) {
-    const bgDiv = document.createElement('div');
-    bgDiv.className = 'summary';
-    bgDiv.innerHTML = `<span class="section-head">⑤ 背景・構造</span>${nl2br(article.background)}`;
-    card.appendChild(bgDiv);
-  }
-
-  // ⑥ 勝者 / 敗者
-  if (article.winnersLosers) {
-    const wlDiv = document.createElement('div');
-    wlDiv.className = 'summary';
-    wlDiv.innerHTML = `<span class="section-head">⑥ 勝者 / 敗者</span>${nl2br(article.winnersLosers)}`;
-    card.appendChild(wlDiv);
-  }
-
-  // ⑦ 今後の注目点
-  if (article.watchNext) {
-    const wnDiv = document.createElement('div');
-    wnDiv.className = 'summary';
-    wnDiv.innerHTML = `<span class="section-head">⑦ 今後の注目点</span>${nl2br(article.watchNext)}`;
-    card.appendChild(wnDiv);
-  }
-
-  // ⑧ 一言コメント
-  if (article.comment) {
-    const cmDiv = document.createElement('div');
-    cmDiv.className = 'summary';
-    cmDiv.style.cssText = 'font-style:italic;color:#aaa;border-top:1px solid #333;padding-top:10px;margin-top:6px';
-    cmDiv.innerHTML = `<span class="section-head">⑧ 一言コメント</span>${nl2br(article.comment)}`;
-    card.appendChild(cmDiv);
   }
 
   // フォールバック: 旧形式の summary のみ
   if (!article.oneLiner && article.summary) {
     const summaryDiv = document.createElement('div');
     summaryDiv.className = 'summary';
-    summaryDiv.innerHTML = nl2br(article.summary);
+    summaryDiv.innerHTML = md(article.summary);
     card.appendChild(summaryDiv);
   }
 
@@ -379,7 +357,7 @@ async function deepDive(index, article, btn, card) {
     deepDiv.innerHTML = `
       <div class="deep-dive-result">
         <h3>🔍 詳細分析</h3>
-        <p>${nl2br(analysis)}</p>
+        <div class="md-content">${md(analysis)}</div>
       </div>`;
     btn.style.display = 'none';
   } catch (e) {
@@ -412,14 +390,13 @@ function buildShareText(articles) {
       } catch (_) {}
     }
     if (a.oneLiner) text += `\n① ${a.oneLiner}\n`;
-    if (a.whyItMatters) text += `\n💡 Why it matters\n${a.whyItMatters}\n`;
-    if (a.keyPoints && a.keyPoints.length > 0) {
-      text += `\n③ 要点\n`;
-      a.keyPoints.forEach(p => { text += `・${p}\n`; });
+    if (a.powerStructure) text += `\n② パワー構造\n${a.powerStructure}\n`;
+    if (a.beforeAfter) text += `\n③ 何が変わったか\n${a.beforeAfter}\n`;
+    if (a.players && a.players.length > 0) {
+      text += `\n④ プレイヤー別まとめ\n`;
+      a.players.forEach(p => { text += `・${p}\n`; });
     }
-    if (a.essence) text += `\n④ 本質\n${a.essence}\n`;
-    if (a.winnersLosers) text += `\n⑥ 勝者/敗者\n${a.winnersLosers}\n`;
-    if (a.watchNext) text += `\n⑦ 注目点\n${a.watchNext}\n`;
+    if (a.essence) text += `\n⑤ 本質\n${a.essence}\n`;
     const deepDiv = document.getElementById(`deep-${i}`);
     if (deepDiv) {
       const deepResult = deepDiv.querySelector('.deep-dive-result p');
@@ -493,9 +470,9 @@ function buildLineMessages(articles) {
     let msg = `【${i + 1}/${articles.length}】${cats ? `[${cats}] ` : ''}${a.title || '(タイトルなし)'}\n\n`;
     let body = '';
     if (a.oneLiner) body += `① ${a.oneLiner}\n`;
-    if (a.whyItMatters) body += `\n💡 ${a.whyItMatters}\n`;
-    if (a.keyPoints && a.keyPoints.length > 0) {
-      a.keyPoints.forEach(p => { body += `・${p}\n`; });
+    if (a.beforeAfter) body += `\n③ ${a.beforeAfter}\n`;
+    if (a.players && a.players.length > 0) {
+      a.players.forEach(p => { body += `・${p}\n`; });
     }
     if (!a.oneLiner && a.summary) body += a.summary;
     const link = `\n\n🔗 ${a.url}`;
@@ -574,13 +551,13 @@ function buildSlackPayload(articles) {
     const titleLine = `*${i + 1}. <${a.url}|${a.title || '(タイトルなし)'}>*${dateTag ? `　🕐 ${dateTag}` : ''}`;
     let body = cats ? cats + '\n' : '';
     if (a.oneLiner) body += `① ${a.oneLiner}\n`;
-    if (a.whyItMatters) body += `\n💡 *Why it matters*\n${a.whyItMatters}\n`;
-    if (a.keyPoints && a.keyPoints.length > 0) {
-      body += `\n*③ 要点*\n`;
-      a.keyPoints.forEach(p => { body += `• ${p}\n`; });
+    if (a.powerStructure) body += `\n*② パワー構造*\n${a.powerStructure}\n`;
+    if (a.beforeAfter) body += `\n*③ 何が変わったか*\n${a.beforeAfter}\n`;
+    if (a.players && a.players.length > 0) {
+      body += `\n*④ プレイヤー別まとめ*\n`;
+      a.players.forEach(p => { body += `• ${p}\n`; });
     }
-    if (a.winnersLosers) body += `\n*⑥ 勝者/敗者*\n${a.winnersLosers}\n`;
-    if (a.watchNext) body += `\n*⑦ 注目点*\n${a.watchNext}`;
+    if (a.essence) body += `\n*⑤ 本質*\n${a.essence}`;
     if (!a.oneLiner && a.summary) body += a.summary;
     if (body.length > 2800) body = body.slice(0, 2800) + '…';
 

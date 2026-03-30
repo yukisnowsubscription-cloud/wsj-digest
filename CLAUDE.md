@@ -68,16 +68,13 @@ runDigest / runNhkDigest:
 ```js
 {
   url, title, text, publishedAt,
-  categories: string[],   // 例: ['経済', '金融']
-  oneLiner: string,
-  whyItMatters: string,
-  keyPoints: string[],
-  essence: string,
-  background: string,
-  winnersLosers: string,
-  watchNext: string,
-  comment: string,
-  summary: string         // フォールバック用
+  categories: string[],       // 例: ['経済', '金融']
+  oneLiner: string,           // ① 一言でいうと
+  powerStructure: string,     // ② パワー構造（矢印図）
+  beforeAfter: string,        // ③ 何が変わったか（Before/After）
+  players: string[],          // ④ プレイヤー別まとめ
+  essence: string,            // ⑤ 本質
+  summary: string             // フォールバック用
 }
 ```
 
