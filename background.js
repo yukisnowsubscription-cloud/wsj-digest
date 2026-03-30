@@ -131,7 +131,8 @@ async function summarize(apiKey, title, text) {
   }
 
   const data = await res.json();
-  const raw = data.choices[0].message.content.trim();
+  console.log('GPT response:', JSON.stringify(data, null, 2));
+  const raw = (data.choices?.[0]?.message?.content || data.output?.content?.[0]?.text || '').trim();
 
   try {
     const m = raw.match(/\{[\s\S]*\}/);
