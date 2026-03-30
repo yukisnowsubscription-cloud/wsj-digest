@@ -369,8 +369,8 @@ async function collectNhkArticleUrls(tabId) {
   return [];
 }
 
-async function runNhkDigest(nhkTabId, sessionId, apiKey) {
-  let articleUrls = await collectNhkArticleUrls(nhkTabId);
+async function runNhkDigest(nhkTabId, sessionId, apiKey, presetUrls = null) {
+  let articleUrls = presetUrls || await collectNhkArticleUrls(nhkTabId);
 
   // 既読記事を除外
   const { readArticles } = await chrome.storage.local.get('readArticles');
@@ -493,12 +493,16 @@ async function collectArticleUrls(tabId) {
 
 // ─── ダイジェスト本体ロジック ─────────────────────────────────────────────────
 
-async function runDigest(wsjTabId, sessionId, apiKey) {
+async function runDigest(wsjTabId, sessionId, apiKey, presetUrls = null) {
   let articleUrls = [];
-  try {
-    articleUrls = await collectArticleUrls(wsjTabId);
-  } catch (e) {
-    console.error('URL収集エラー:', e);
+  if (presetUrls) {
+    articleUrls = presetUrls;
+  } else {
+    try {
+      articleUrls = await collectArticleUrls(wsjTabId);
+    } catch (e) {
+      console.error('URL収集エラー:', e);
+    }
   }
 
   // 既読記事を除外
@@ -683,6 +687,34 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 // ─── 拡張アイコンクリック ─────────────────────────────────────────────────────
 
+// 現在のURLが WSJ 個別記事かどうか判定
+function isSingleWsjArticle(url) {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes('wsj.com')) return false;
+    const path = u.pathname;
+    if (path.startsWith('/articles/')) return true;
+    const excludePaths = ['/video/', '/podcasts/', '/livecoverage/', '/live-coverage/',
+      '/news/types/', '/news/author/', '/buyside/', '/coupons/', '/market-data/', '/graphics/', '/story/'];
+    for (const ex of excludePaths) { if (path.includes(ex)) return false; }
+    const segments = path.split('/').filter(Boolean);
+    if (segments.length >= 3) return true;
+    if (segments.length === 2 && segments[1].length > 30) return true;
+    return false;
+  } catch (_) { return false; }
+}
+
+// 現在のURLが NHK 個別記事かどうか判定
+function isSingleNhkArticle(url) {
+  try {
+    const u = new URL(url);
+    const path = u.pathname;
+    if (/\/newsweb\/na\/na-/.test(path)) return true;
+    if (/\/news\/html\/\d{8}\//.test(path)) return true;
+    return false;
+  } catch (_) { return false; }
+}
+
 chrome.action.onClicked.addListener(async tab => {
   const url = tab.url || '';
   const isWsj = url.includes('wsj.com');
@@ -707,8 +739,12 @@ chrome.action.onClicked.addListener(async tab => {
   await sleep(600);
 
   if (isNhk) {
-    await runNhkDigest(tab.id, sessionId, apiKey);
+    // 個別記事ページなら1件だけ処理
+    const singleUrl = isSingleNhkArticle(url) ? [url.split('?')[0]] : null;
+    await runNhkDigest(tab.id, sessionId, apiKey, singleUrl);
   } else {
-    await runDigest(tab.id, sessionId, apiKey);
+    // 個別記事ページなら1件だけ処理
+    const singleUrl = isSingleWsjArticle(url) ? [url.split('?')[0]] : null;
+    await runDigest(tab.id, sessionId, apiKey, singleUrl);
   }
 });
