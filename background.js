@@ -112,9 +112,10 @@ async function summarize(apiKey, title, text) {
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini',
+        model: 'gpt-4.1-mini',
         messages: [{ role: 'user', content: prompt }],
-        max_completion_tokens: 8000
+        max_tokens: 1500,
+        temperature: 0.3
       })
     });
 
