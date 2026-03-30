@@ -114,8 +114,7 @@ async function summarize(apiKey, title, text) {
       body: JSON.stringify({
         model: 'gpt-5-mini',
         messages: [{ role: 'user', content: prompt }],
-        max_completion_tokens: 1500,
-        temperature: 0.3
+        max_completion_tokens: 1500
       })
     });
 
